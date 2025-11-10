@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>AI Face Detection Studio</title>
+  <script defer src="face-api.min.js"></script>
+  <script defer src="script.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    .header {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .logo::before {
+      content: "🎯";
+      font-size: 2rem;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      background: rgba(255, 255, 255, 0.1);
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff4757;
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.active {
+      background: #2ed573;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .main-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      gap: 2rem;
+    }
+
+    .video-container {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+    }
+
+    #video {
+      display: block;
+      border-radius: 20px;
+      max-width: 90vw;
+      max-height: 70vh;
+      width: auto;
+      height: auto;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      border-radius: 20px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .control-group {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 15px;
+      padding: 1rem 1.5rem;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .toggle-btn {
+      background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+      border: none;
+      border-radius: 10px;
+      padding: 0.75rem 1.5rem;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 0.875rem;
+    }
+
+    .toggle-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .toggle-btn.active {
+      background: linear-gradient(135deg, #2ed573, #17c0eb);
+    }
+
+    .info-panel {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 15px;
+      padding: 1.5rem;
+      max-width: 800px;
+      width: 100%;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #2ed573;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      margin-top: 0.25rem;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error {
+      background: rgba(255, 71, 87, 0.2);
+      border: 1px solid rgba(255, 71, 87, 0.5);
+      color: #fff;
+      padding: 1rem;
+      border-radius: 10px;
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        padding: 1rem;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .main-container {
+        padding: 1rem;
+      }
+
+      .controls {
+        flex-direction: column;
+      }
+
+      .control-group {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="logo">AI Face Detection Studio</div>
+    <div class="status-indicator">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Initializing...</span>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div class="loading" id="loading">
+      <div class="loading-spinner"></div>
+      <p>Loading AI models...</p>
+    </div>
+
+    <div class="video-container" id="videoContainer" style="display: none;">
+      <video id="video" width="720" height="560" autoplay muted playsinline></video>
+    </div>
+
+    <div class="controls" id="controls" style="display: none;">
+      <div class="control-group">
+        <button class="toggle-btn active" id="detectionBtn">Face Detection</button>
+        <button class="toggle-btn active" id="landmarksBtn">Landmarks</button>
+        <button class="toggle-btn active" id="expressionsBtn">Expressions</button>
+      </div>
+    </div>
+
+    <div class="info-panel" id="infoPanel" style="display: none;">
+      <div class="stats">
+        <div class="stat-item">
+          <div class="stat-value" id="faceCount">0</div>
+          <div class="stat-label">Faces Detected</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="fps">0</div>
+          <div class="stat-label">FPS</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="confidence">0%</div>
+          <div class="stat-label">Avg Confidence</div>
+        </div>
+      </div>
+      <div id="dominantExpression">Dominant expression: <strong>Neutral</strong></div>
+    </div>
+
+    <div class="error" id="error" style="display: none;"></div>
+  </div>
+</body>
+</html>
