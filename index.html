@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>AI Face Detection Studio</title>
+  <title>ConfidentSpeak - AI Presentation Coach</title>
   <script defer src="face-api.min.js"></script>
   <script defer src="script.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
 
     body {
       font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
       color: #fff;
       min-height: 100vh;
       display: flex;
@@ -25,11 +25,12 @@
       overflow-x: hidden;
     }
 
+    /* Header */
     .header {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.05);
       backdrop-filter: blur(20px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-      padding: 1rem 2rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.75rem 2rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -38,14 +39,67 @@
     .logo {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      font-size: 1.5rem;
+      gap: 0.75rem;
+      font-size: 1.25rem;
       font-weight: 700;
     }
 
-    .logo::before {
-      content: "🎯";
-      font-size: 2rem;
+    .logo-icon { font-size: 1.5rem; }
+    .logo-text span { color: #4ade80; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .header-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s;
+    }
+
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .session-timer {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      background: rgba(255, 255, 255, 0.1);
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: monospace;
+    }
+
+    .session-timer.recording {
+      background: rgba(239, 68, 68, 0.3);
+      border: 1px solid rgba(239, 68, 68, 0.5);
+    }
+
+    .session-timer.recording::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      background: #ef4444;
+      border-radius: 50%;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
     }
 
     .status-indicator {
@@ -56,7 +110,6 @@
       border-radius: 2rem;
       background: rgba(255, 255, 255, 0.1);
       font-size: 0.875rem;
-      font-weight: 500;
     }
 
     .status-dot {
@@ -64,145 +117,472 @@
       height: 8px;
       border-radius: 50%;
       background: #ff4757;
-      animation: pulse 2s infinite;
     }
 
-    .status-dot.active {
-      background: #2ed573;
-    }
+    .status-dot.active { background: #4ade80; }
 
-    @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.5; }
-      100% { opacity: 1; }
-    }
-
+    /* Main Layout */
     .main-container {
       flex: 1;
       display: flex;
+      padding: 1rem;
+      gap: 1rem;
+      overflow-y: auto;
+    }
+
+    .left-panel {
+      flex: 1;
+      display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-      gap: 2rem;
+      gap: 1rem;
+      min-width: 0;
+    }
+
+    .video-section {
+      position: relative;
     }
 
     .video-container {
       position: relative;
-      border-radius: 20px;
+      border-radius: 16px;
       overflow: hidden;
-      box-shadow: 
-        0 20px 40px rgba(0, 0, 0, 0.3),
-        0 0 0 1px rgba(255, 255, 255, 0.1);
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(10px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      background: rgba(0, 0, 0, 0.3);
     }
 
     #video {
       display: block;
-      border-radius: 20px;
-      max-width: 90vw;
-      max-height: 70vh;
-      width: auto;
-      height: auto;
+      border-radius: 16px;
+      width: 100%;
+      max-height: 60vh;
+      object-fit: cover;
     }
 
     canvas {
       position: absolute;
       top: 0;
       left: 0;
-      border-radius: 20px;
+      border-radius: 16px;
     }
 
-    .controls {
+    /* Teleprompter Overlay */
+    .teleprompter-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.9));
+      padding: 2rem 1.5rem 1rem;
+      display: none;
+    }
+
+    .teleprompter-overlay.active {
+      display: block;
+    }
+
+    .teleprompter-text {
+      font-size: 1.25rem;
+      line-height: 1.6;
+      color: #fff;
+      text-align: center;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    /* Session Controls */
+    .session-controls {
       display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
+      gap: 0.75rem;
       justify-content: center;
-      align-items: center;
+      padding: 0.75rem;
+      flex-wrap: wrap;
     }
 
-    .control-group {
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 15px;
-      padding: 1rem 1.5rem;
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-    }
-
-    .toggle-btn {
-      background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    .btn {
       border: none;
       border-radius: 10px;
       padding: 0.75rem 1.5rem;
-      color: white;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.3s ease;
-      font-size: 0.875rem;
+      transition: all 0.2s ease;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
 
-    .toggle-btn:hover {
+    .btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
     }
 
-    .toggle-btn.active {
-      background: linear-gradient(135deg, #2ed573, #17c0eb);
+    .btn-primary {
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+      color: #000;
     }
 
-    .info-panel {
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #fff;
+    }
+
+    .btn-secondary {
       background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
+      color: #fff;
       border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 15px;
-      padding: 1.5rem;
-      max-width: 800px;
-      width: 100%;
     }
 
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1rem;
+    .btn-sm {
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
     }
 
-    .stat-item {
-      text-align: center;
+    /* Right Panel */
+    .right-panel {
+      width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
       padding: 1rem;
+    }
+
+    .panel-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Practice Mode Selector */
+    .mode-selector {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+    }
+
+    .mode-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 0.75rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mode-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .mode-btn.active {
+      background: rgba(74, 222, 128, 0.2);
+      border-color: #4ade80;
+    }
+
+    .mode-btn .mode-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .mode-btn .mode-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .mode-btn .mode-time {
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* Confidence Score */
+    .confidence-score {
+      text-align: center;
+      padding: 0.5rem 0;
+    }
+
+    .score-circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: conic-gradient(#4ade80 0deg, #4ade80 calc(var(--score) * 3.6deg), rgba(255,255,255,0.1) calc(var(--score) * 3.6deg));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 0.75rem;
+      position: relative;
+    }
+
+    .score-circle::before {
+      content: "";
+      width: 95px;
+      height: 95px;
+      background: #1a1a2e;
+      border-radius: 50%;
+      position: absolute;
+    }
+
+    .score-value {
+      position: relative;
+      font-size: 2rem;
+      font-weight: 700;
+      color: #4ade80;
+    }
+
+    .score-label {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.8rem;
+    }
+
+    /* Tips */
+    .tip-card {
+      background: rgba(74, 222, 128, 0.1);
+      border: 1px solid rgba(74, 222, 128, 0.3);
+      border-radius: 10px;
+      padding: 0.75rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+
+    .tip-card.warning {
+      background: rgba(251, 191, 36, 0.1);
+      border-color: rgba(251, 191, 36, 0.3);
+    }
+
+    .tip-card.info {
+      background: rgba(59, 130, 246, 0.1);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .tip-icon { font-size: 1.1rem; }
+    .tip-content { flex: 1; }
+    .tip-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; }
+    .tip-description { font-size: 0.8rem; color: rgba(255, 255, 255, 0.7); }
+
+    /* Expression Metrics */
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 0.85rem;
+    }
+
+    .metric-row:last-child { border-bottom: none; }
+
+    .metric-bar {
+      width: 80px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .metric-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4ade80, #22c55e);
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    .metric-fill.medium { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+
+    .metric-value {
+      font-weight: 600;
+      min-width: 40px;
+      text-align: right;
+    }
+
+    /* Teleprompter Panel */
+    .teleprompter-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 0.75rem;
+      color: #fff;
+      font-size: 0.85rem;
+      resize: none;
+      height: 100px;
+      font-family: inherit;
+    }
+
+    .teleprompter-input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .teleprompter-controls {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    /* History Panel */
+    .history-list {
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      font-size: 0.8rem;
+    }
+
+    .history-item:last-child { margin-bottom: 0; }
+
+    .history-date {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 0.7rem;
+    }
+
+    .history-score {
+      background: rgba(74, 222, 128, 0.2);
+      color: #4ade80;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .history-empty {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 1rem;
+      font-size: 0.85rem;
+    }
+
+    .streak-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.2));
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 10px;
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .streak-badge .streak-fire { font-size: 1.5rem; }
+    .streak-badge .streak-text { font-weight: 600; }
+    .streak-badge .streak-count { color: #fbbf24; font-size: 1.25rem; font-weight: 700; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 1.5rem;
+      max-width: 450px;
+      width: 90%;
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+    }
+
+    .modal-overlay.active .modal { transform: scale(1); }
+
+    .modal-header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .modal-header h2 { font-size: 1.25rem; margin-bottom: 0.25rem; }
+    .modal-header p { color: rgba(255, 255, 255, 0.6); font-size: 0.9rem; }
+
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .summary-stat {
       background: rgba(255, 255, 255, 0.05);
       border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
     }
 
-    .stat-value {
+    .summary-stat-value {
       font-size: 1.5rem;
       font-weight: 700;
-      color: #2ed573;
+      color: #4ade80;
     }
 
-    .stat-label {
-      font-size: 0.875rem;
-      opacity: 0.8;
-      margin-top: 0.25rem;
+    .summary-stat-label {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 0.2rem;
     }
 
-    .loading {
+    .modal-actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+
+    /* Loading & Welcome */
+    .loading, .welcome-screen {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
       text-align: center;
       padding: 2rem;
     }
 
+    .loading.hidden, .welcome-screen.hidden { display: none; }
+
     .loading-spinner {
       width: 50px;
       height: 50px;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-top: 3px solid #fff;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top: 3px solid #4ade80;
       border-radius: 50%;
       animation: spin 1s linear infinite;
-      margin: 0 auto 1rem;
+      margin-bottom: 1rem;
     }
 
     @keyframes spin {
@@ -210,84 +590,663 @@
       100% { transform: rotate(360deg); }
     }
 
+    .welcome-icon { font-size: 4rem; margin-bottom: 1rem; }
+    .welcome-title { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .welcome-title span { color: #4ade80; }
+    .welcome-subtitle {
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.7);
+      max-width: 450px;
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+
+    .features-list {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
     .error {
-      background: rgba(255, 71, 87, 0.2);
-      border: 1px solid rgba(255, 71, 87, 0.5);
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.5);
       color: #fff;
       padding: 1rem;
       border-radius: 10px;
       text-align: center;
+      margin: 1rem;
+      display: none;
+    }
+
+    /* Timer indicator for timed modes */
+    .time-remaining {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-family: monospace;
+      display: none;
+    }
+
+    .time-remaining.active { display: block; }
+    .time-remaining.warning { color: #fbbf24; }
+    .time-remaining.danger { color: #ef4444; animation: blink 0.5s infinite; }
+
+    /* Practice Prompts */
+    .prompt-card {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 10px;
+      padding: 0.75rem;
+      text-align: center;
+    }
+
+    .prompt-category {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 0.25rem;
+    }
+
+    .prompt-text {
+      font-size: 0.9rem;
+      font-weight: 500;
+      line-height: 1.4;
+      margin-bottom: 0.5rem;
+    }
+
+    .prompt-btn {
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #60a5fa;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .prompt-btn:hover {
+      background: rgba(59, 130, 246, 0.3);
+    }
+
+    /* Achievement Badges */
+    .badges-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+    }
+
+    .badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.5rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      text-align: center;
+      transition: all 0.2s;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .badge:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: scale(1.05);
+    }
+
+    .badge.locked {
+      opacity: 0.4;
+      filter: grayscale(1);
+    }
+
+    .badge.unlocked {
+      animation: badgeUnlock 0.5s ease;
+    }
+
+    .badge.new::after {
+      content: "NEW";
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background: #ef4444;
+      color: #fff;
+      font-size: 0.5rem;
+      padding: 0.15rem 0.3rem;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    @keyframes badgeUnlock {
+      0% { transform: scale(0.5); opacity: 0; }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .badge-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .badge-name {
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .badge-tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: #fff;
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .badge:hover .badge-tooltip {
+      opacity: 1;
+      visibility: visible;
+      bottom: calc(100% + 5px);
+    }
+
+    /* Breathing Exercise Modal */
+    .breathing-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .breathing-modal.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .breathing-circle {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(74, 222, 128, 0.3) 0%, rgba(74, 222, 128, 0) 70%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      animation: breathe 8s ease-in-out infinite;
+    }
+
+    .breathing-circle::before {
+      content: "";
+      position: absolute;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      border: 2px solid rgba(74, 222, 128, 0.5);
+      animation: breathe 8s ease-in-out infinite;
+    }
+
+    .breathing-circle::after {
+      content: "";
+      position: absolute;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      border: 2px solid rgba(74, 222, 128, 0.3);
+      animation: breathe 8s ease-in-out infinite 0.2s;
+    }
+
+    @keyframes breathe {
+      0%, 100% { transform: scale(0.8); }
+      50% { transform: scale(1.2); }
+    }
+
+    .breathing-text {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #4ade80;
+      z-index: 1;
+    }
+
+    .breathing-instruction {
+      margin-top: 2rem;
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.7);
+      text-align: center;
+    }
+
+    .breathing-skip {
+      margin-top: 2rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .breathing-skip:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .breathing-progress {
+      margin-top: 1.5rem;
+      width: 200px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .breathing-progress-bar {
+      height: 100%;
+      background: #4ade80;
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+
+    /* Confetti Animation */
+    .confetti-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 3000;
+      overflow: hidden;
+    }
+
+    .confetti {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      opacity: 0;
+    }
+
+    .confetti.active {
+      animation: confetti-fall 3s ease-out forwards;
+    }
+
+    @keyframes confetti-fall {
+      0% {
+        transform: translateY(-100%) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+      }
+    }
+
+    /* Eye Contact Indicator */
+    .eye-contact-indicator {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .eye-contact-indicator.active { display: flex; }
+
+    .eye-contact-indicator .eye-icon {
+      font-size: 1rem;
+    }
+
+    .eye-contact-indicator.good {
+      border: 1px solid rgba(74, 222, 128, 0.5);
+      color: #4ade80;
+    }
+
+    .eye-contact-indicator.poor {
+      border: 1px solid rgba(251, 191, 36, 0.5);
+      color: #fbbf24;
+    }
+
+    /* Session Notes */
+    .notes-section {
       margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .notes-label {
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 0.5rem;
+    }
+
+    .notes-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 0.75rem;
+      color: #fff;
+      font-size: 0.85rem;
+      resize: none;
+      height: 80px;
+      font-family: inherit;
+    }
+
+    .notes-input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .history-item-notes {
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 0.25rem;
+      font-style: italic;
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .main-container { flex-direction: column; }
+      .right-panel { width: 100%; flex-direction: row; flex-wrap: wrap; }
+      .right-panel .panel { flex: 1; min-width: 280px; }
+      #video { max-height: 50vh; }
     }
 
     @media (max-width: 768px) {
-      .header {
-        padding: 1rem;
-        flex-direction: column;
-        gap: 1rem;
-      }
-
-      .main-container {
-        padding: 1rem;
-      }
-
-      .controls {
-        flex-direction: column;
-      }
-
-      .control-group {
-        width: 100%;
-        justify-content: center;
-      }
+      .header { padding: 0.5rem 1rem; flex-wrap: wrap; gap: 0.5rem; }
+      .main-container { padding: 0.5rem; }
+      .right-panel .panel { min-width: 100%; }
+      #video { max-height: 40vh; }
     }
   </style>
 </head>
 <body>
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="loading-spinner"></div>
+    <p id="loadingText">Loading AI models...</p>
+  </div>
+
+  <!-- Welcome -->
+  <div class="welcome-screen" id="welcomeScreen">
+    <div class="welcome-icon">🎤</div>
+    <h1 class="welcome-title">Confident<span>Speak</span></h1>
+    <p class="welcome-subtitle">
+      Your AI-powered presentation coach. Practice speaking with real-time feedback on your confidence, expressions, and engagement.
+    </p>
+    <div class="features-list">
+      <div class="feature-item"><span>⏱️</span> Practice Modes</div>
+      <div class="feature-item"><span>📝</span> Teleprompter</div>
+      <div class="feature-item"><span>📊</span> Progress Tracking</div>
+      <div class="feature-item"><span>💡</span> Live Coaching</div>
+    </div>
+    <button class="btn btn-primary" id="startAppBtn" style="font-size: 1rem; padding: 1rem 2.5rem;">
+      <span>🚀</span> Start Practicing
+    </button>
+  </div>
+
+  <!-- Header -->
   <header class="header">
-    <div class="logo">AI Face Detection Studio</div>
-    <div class="status-indicator">
-      <div class="status-dot" id="statusDot"></div>
-      <span id="statusText">Initializing...</span>
+    <div class="logo">
+      <span class="logo-icon">🎤</span>
+      <div class="logo-text">Confident<span>Speak</span></div>
+    </div>
+    <div class="header-right">
+      <button class="header-btn" id="historyBtn"><span>📈</span> History</button>
+      <div class="session-timer" id="sessionTimer">
+        <span id="timerDisplay">00:00</span>
+      </div>
+      <div class="status-indicator">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Ready</span>
+      </div>
     </div>
   </header>
 
+  <!-- Main -->
   <div class="main-container">
-    <div class="loading" id="loading">
-      <div class="loading-spinner"></div>
-      <p>Loading AI models...</p>
-    </div>
-
-    <div class="video-container" id="videoContainer" style="display: none;">
-      <video id="video" width="720" height="560" autoplay muted playsinline></video>
-    </div>
-
-    <div class="controls" id="controls" style="display: none;">
-      <div class="control-group">
-        <button class="toggle-btn active" id="detectionBtn">Face Detection</button>
-        <button class="toggle-btn active" id="landmarksBtn">Landmarks</button>
-        <button class="toggle-btn active" id="expressionsBtn">Expressions</button>
+    <!-- Left Panel -->
+    <div class="left-panel">
+      <div class="video-section">
+        <div class="video-container" id="videoContainer">
+          <video id="video" width="720" height="560" autoplay muted playsinline></video>
+          <div class="eye-contact-indicator" id="eyeContactIndicator">
+            <span class="eye-icon">👁️</span>
+            <span id="eyeContactText">Looking at camera</span>
+          </div>
+          <div class="time-remaining" id="timeRemaining">5:00</div>
+          <div class="teleprompter-overlay" id="teleprompterOverlay">
+            <div class="teleprompter-text" id="teleprompterDisplay"></div>
+          </div>
+        </div>
+      </div>
+      <div class="session-controls">
+        <button class="btn btn-secondary" id="breatheBtn"><span>🧘</span> Breathe First</button>
+        <button class="btn btn-primary" id="startSessionBtn"><span>▶️</span> Start Session</button>
+        <button class="btn btn-danger" id="endSessionBtn" style="display: none;"><span>⏹️</span> End</button>
+        <button class="btn btn-secondary" id="pauseSessionBtn" style="display: none;"><span>⏸️</span> Pause</button>
       </div>
     </div>
 
-    <div class="info-panel" id="infoPanel" style="display: none;">
-      <div class="stats">
-        <div class="stat-item">
-          <div class="stat-value" id="faceCount">0</div>
-          <div class="stat-label">Faces Detected</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" id="fps">0</div>
-          <div class="stat-label">FPS</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" id="confidence">0%</div>
-          <div class="stat-label">Avg Confidence</div>
+    <!-- Right Panel -->
+    <div class="right-panel">
+      <!-- Practice Mode -->
+      <div class="panel">
+        <div class="panel-title"><span>⏱️</span> Practice Mode</div>
+        <div class="mode-selector" id="modeSelector">
+          <div class="mode-btn" data-mode="elevator" data-duration="30">
+            <div class="mode-icon">⚡</div>
+            <div class="mode-name">Elevator</div>
+            <div class="mode-time">30 sec</div>
+          </div>
+          <div class="mode-btn" data-mode="intro" data-duration="60">
+            <div class="mode-icon">👋</div>
+            <div class="mode-name">Quick Intro</div>
+            <div class="mode-time">1 min</div>
+          </div>
+          <div class="mode-btn active" data-mode="presentation" data-duration="300">
+            <div class="mode-icon">🎯</div>
+            <div class="mode-name">Presentation</div>
+            <div class="mode-time">5 min</div>
+          </div>
+          <div class="mode-btn" data-mode="unlimited" data-duration="0">
+            <div class="mode-icon">♾️</div>
+            <div class="mode-name">Unlimited</div>
+            <div class="mode-time">No limit</div>
+          </div>
         </div>
       </div>
-      <div id="dominantExpression">Dominant expression: <strong>Neutral</strong></div>
-    </div>
 
-    <div class="error" id="error" style="display: none;"></div>
+      <!-- Practice Prompts -->
+      <div class="panel">
+        <div class="panel-title"><span>🎲</span> Practice Prompt</div>
+        <div class="prompt-card">
+          <div class="prompt-category" id="promptCategory">Interview</div>
+          <div class="prompt-text" id="promptText">Tell me about yourself and your background.</div>
+          <button class="prompt-btn" id="newPromptBtn">🔄 New Prompt</button>
+        </div>
+      </div>
+
+      <!-- Teleprompter -->
+      <div class="panel">
+        <div class="panel-title"><span>📝</span> Teleprompter</div>
+        <textarea class="teleprompter-input" id="teleprompterInput" placeholder="Paste your script or notes here...&#10;&#10;They'll appear on screen while you practice."></textarea>
+        <div class="teleprompter-controls">
+          <button class="btn btn-secondary btn-sm" id="toggleTeleprompter"><span>👁️</span> Show</button>
+          <button class="btn btn-secondary btn-sm" id="clearTeleprompter"><span>🗑️</span> Clear</button>
+        </div>
+      </div>
+
+      <!-- Confidence Score -->
+      <div class="panel">
+        <div class="panel-title"><span>📊</span> Confidence Score</div>
+        <div class="confidence-score">
+          <div class="score-circle" id="scoreCircle" style="--score: 0;">
+            <span class="score-value" id="confidenceScore">0</span>
+          </div>
+          <p class="score-label" id="scoreLabel">Start a session to see your score</p>
+        </div>
+      </div>
+
+      <!-- Coaching Tips -->
+      <div class="panel">
+        <div class="panel-title"><span>💡</span> Coaching Tips</div>
+        <div id="tipsContainer">
+          <div class="tip-card">
+            <span class="tip-icon">👋</span>
+            <div class="tip-content">
+              <div class="tip-title">Ready to practice?</div>
+              <div class="tip-description">Select a mode and start your session!</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Expression Analysis -->
+      <div class="panel">
+        <div class="panel-title"><span>😊</span> Expressions</div>
+        <div id="expressionMetrics">
+          <div class="metric-row">
+            <span>😊 Happy</span>
+            <div class="metric-bar"><div class="metric-fill" id="happyBar" style="width: 0%"></div></div>
+            <span class="metric-value" id="happyValue">0%</span>
+          </div>
+          <div class="metric-row">
+            <span>😐 Neutral</span>
+            <div class="metric-bar"><div class="metric-fill" id="neutralBar" style="width: 0%"></div></div>
+            <span class="metric-value" id="neutralValue">0%</span>
+          </div>
+          <div class="metric-row">
+            <span>😮 Surprised</span>
+            <div class="metric-bar"><div class="metric-fill" id="surprisedBar" style="width: 0%"></div></div>
+            <span class="metric-value" id="surprisedValue">0%</span>
+          </div>
+          <div class="metric-row">
+            <span>😟 Worried</span>
+            <div class="metric-bar"><div class="metric-fill medium" id="sadBar" style="width: 0%"></div></div>
+            <span class="metric-value" id="sadValue">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Achievement Badges -->
+      <div class="panel">
+        <div class="panel-title"><span>🏆</span> Achievements</div>
+        <div class="badges-grid" id="badgesGrid">
+          <!-- Badges will be rendered by JS -->
+        </div>
+      </div>
+    </div>
   </div>
+
+  <!-- Session Summary Modal -->
+  <div class="modal-overlay" id="summaryModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>🎉 Session Complete!</h2>
+        <p>Here's your performance summary</p>
+      </div>
+      <div class="summary-stats">
+        <div class="summary-stat">
+          <div class="summary-stat-value" id="summaryScore">0</div>
+          <div class="summary-stat-label">Confidence</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-value" id="summaryDuration">0:00</div>
+          <div class="summary-stat-label">Duration</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-value" id="summarySmiles">0%</div>
+          <div class="summary-stat-label">Smiling</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-value" id="summaryEngagement">-</div>
+          <div class="summary-stat-label">Engagement</div>
+        </div>
+      </div>
+      <div id="summaryFeedback" style="background: rgba(74, 222, 128, 0.1); border-radius: 10px; padding: 1rem; margin-bottom: 1rem; text-align: center; font-size: 0.9rem;"></div>
+      <div class="notes-section">
+        <div class="notes-label">📝 Session Notes (optional)</div>
+        <textarea class="notes-input" id="sessionNotesInput" placeholder="What went well? What to improve next time?"></textarea>
+      </div>
+      <div class="modal-actions" style="margin-top: 1rem;">
+        <button class="btn btn-secondary" id="closeModalBtn">Close</button>
+        <button class="btn btn-primary" id="newSessionBtn"><span>🔄</span> New Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Modal -->
+  <div class="modal-overlay" id="historyModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>📈 Your Progress</h2>
+        <p>Track your improvement over time</p>
+      </div>
+      <div id="streakContainer"></div>
+      <div class="history-list" id="historyList">
+        <div class="history-empty">No sessions yet. Start practicing!</div>
+      </div>
+      <div class="modal-actions" style="margin-top: 1rem;">
+        <button class="btn btn-secondary" id="clearHistoryBtn"><span>🗑️</span> Clear History</button>
+        <button class="btn btn-primary" id="closeHistoryBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Breathing Exercise Modal -->
+  <div class="breathing-modal" id="breathingModal">
+    <div class="breathing-circle">
+      <span class="breathing-text" id="breathingText">Breathe In</span>
+    </div>
+    <p class="breathing-instruction">Follow the circle • Relax your shoulders • Clear your mind</p>
+    <div class="breathing-progress">
+      <div class="breathing-progress-bar" id="breathingProgress"></div>
+    </div>
+    <button class="breathing-skip" id="skipBreathingBtn">Skip & Start Session</button>
+  </div>
+
+  <!-- Confetti Container -->
+  <div class="confetti-container" id="confettiContainer"></div>
+
+  <div class="error" id="error"></div>
 </body>
 </html>
