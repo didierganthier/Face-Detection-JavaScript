@@ -95,6 +95,16 @@ const confettiContainer = document.getElementById('confettiContainer')
 // Session Notes
 const sessionNotesInput = document.getElementById('sessionNotesInput')
 
+// Sound Toggle
+const soundToggle = document.getElementById('soundToggle')
+
+// Keyboard Shortcuts
+const shortcutsBtn = document.getElementById('shortcutsBtn')
+const shortcutsPanel = document.getElementById('shortcutsPanel')
+
+// Progress Chart
+const progressChart = document.getElementById('progressChart')
+
 // ========================================
 // State
 // ========================================
@@ -186,6 +196,10 @@ let lastEyeContactUpdate = 0
 
 // Session Notes Key
 const NOTES_KEY = 'confidentspeak_notes'
+const SOUND_KEY = 'confidentspeak_sound'
+
+// Sound Effects State
+let soundEnabled = localStorage.getItem(SOUND_KEY) !== 'false'
 
 // Coaching Tips
 const coachingTips = {
@@ -367,6 +381,9 @@ function startSession() {
   sessionStartTime = Date.now()
   currentMode.timeLeft = currentMode.duration
   
+  // Play start sound
+  playSound('start')
+  
   sessionStats = {
     confidenceScores: [],
     expressions: { happy: [], neutral: [], surprised: [], sad: [] },
@@ -408,6 +425,9 @@ function startSession() {
 function endSession() {
   isSessionActive = false
   isPaused = false
+  
+  // Play end sound
+  playSound('end')
   
   if (detectionInterval) clearInterval(detectionInterval)
   if (timerInterval) clearInterval(timerInterval)
@@ -471,7 +491,10 @@ function updateTimer() {
     }
 
     // Time-based tips
-    if (currentMode.timeLeft === 60) showTip('time_warning')
+    if (currentMode.timeLeft === 60) {
+      showTip('time_warning')
+      playSound('warning')
+    }
     if (currentMode.timeLeft === Math.floor(currentMode.duration / 2)) showTip('halfway')
   }
 }
@@ -820,6 +843,9 @@ function renderHistory() {
     streakContainer.innerHTML = ''
   }
 
+  // Render progress chart
+  renderProgressChart(history)
+
   // History list
   if (history.length === 0) {
     historyList.innerHTML = '<div class="history-empty">No sessions yet. Start practicing!</div>'
@@ -848,6 +874,111 @@ function renderHistory() {
 function getModeEmoji(mode) {
   const emojis = { elevator: '⚡', intro: '👋', presentation: '🎯', unlimited: '♾️' }
   return emojis[mode] || '🎤'
+}
+
+// ========================================
+// Progress Chart
+// ========================================
+
+function renderProgressChart(history) {
+  const canvas = progressChart
+  if (!canvas) return
+  
+  const ctx = canvas.getContext('2d')
+  const rect = canvas.parentElement.getBoundingClientRect()
+  
+  // Set canvas size
+  canvas.width = rect.width - 24
+  canvas.height = 120
+  
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  
+  if (history.length < 2) {
+    // Not enough data
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'
+    ctx.font = '12px Inter, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('Complete more sessions to see your trend', canvas.width / 2, canvas.height / 2)
+    return
+  }
+  
+  // Get last 10 sessions (reversed so oldest is first)
+  const sessions = history.slice(0, 10).reverse()
+  const scores = sessions.map(s => s.confidence)
+  
+  const padding = 10
+  const chartWidth = canvas.width - padding * 2
+  const chartHeight = canvas.height - padding * 2
+  
+  const maxScore = 100
+  const minScore = 0
+  const xStep = chartWidth / (scores.length - 1)
+  
+  // Draw grid lines
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'
+  ctx.lineWidth = 1
+  for (let i = 0; i <= 4; i++) {
+    const y = padding + (chartHeight / 4) * i
+    ctx.beginPath()
+    ctx.moveTo(padding, y)
+    ctx.lineTo(canvas.width - padding, y)
+    ctx.stroke()
+  }
+  
+  // Draw the line
+  ctx.beginPath()
+  ctx.strokeStyle = '#4ade80'
+  ctx.lineWidth = 2
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  
+  scores.forEach((score, i) => {
+    const x = padding + i * xStep
+    const y = padding + chartHeight - (score / maxScore) * chartHeight
+    
+    if (i === 0) {
+      ctx.moveTo(x, y)
+    } else {
+      ctx.lineTo(x, y)
+    }
+  })
+  ctx.stroke()
+  
+  // Draw gradient fill
+  const gradient = ctx.createLinearGradient(0, padding, 0, canvas.height - padding)
+  gradient.addColorStop(0, 'rgba(74, 222, 128, 0.3)')
+  gradient.addColorStop(1, 'rgba(74, 222, 128, 0)')
+  
+  ctx.lineTo(padding + (scores.length - 1) * xStep, canvas.height - padding)
+  ctx.lineTo(padding, canvas.height - padding)
+  ctx.closePath()
+  ctx.fillStyle = gradient
+  ctx.fill()
+  
+  // Draw dots
+  scores.forEach((score, i) => {
+    const x = padding + i * xStep
+    const y = padding + chartHeight - (score / maxScore) * chartHeight
+    
+    ctx.beginPath()
+    ctx.arc(x, y, 4, 0, Math.PI * 2)
+    ctx.fillStyle = '#4ade80'
+    ctx.fill()
+    ctx.strokeStyle = '#1a1a2e'
+    ctx.lineWidth = 2
+    ctx.stroke()
+  })
+  
+  // Draw current score label
+  const lastScore = scores[scores.length - 1]
+  const lastX = padding + (scores.length - 1) * xStep
+  const lastY = padding + chartHeight - (lastScore / maxScore) * chartHeight
+  
+  ctx.fillStyle = '#fff'
+  ctx.font = 'bold 11px Inter, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText(`${lastScore}%`, lastX, lastY - 12)
 }
 
 function clearHistory() {
@@ -906,6 +1037,7 @@ function checkAndUnlockBadges() {
 
   // Show notification for new badges
   if (newBadgesUnlocked.length > 0) {
+    playSound('badge')
     setTimeout(() => {
       alert(`🎉 Badge Unlocked: ${newBadgesUnlocked.map(b => b.name).join(', ')}!`)
     }, 500)
@@ -1159,8 +1291,34 @@ historyBtn.addEventListener('click', () => { renderHistory(); historyModal.class
 closeHistoryBtn.addEventListener('click', () => historyModal.classList.remove('active'))
 clearHistoryBtn.addEventListener('click', clearHistory)
 
+// Sound Toggle
+soundToggle.checked = soundEnabled
+soundToggle.addEventListener('change', () => {
+  soundEnabled = soundToggle.checked
+  localStorage.setItem(SOUND_KEY, soundEnabled)
+  if (soundEnabled) playSound('click')
+})
+
+// Keyboard Shortcuts Panel
+shortcutsBtn.addEventListener('click', () => {
+  shortcutsPanel.classList.toggle('active')
+  playSound('click')
+})
+
+// Close shortcuts panel when clicking outside
+document.addEventListener('click', (e) => {
+  if (!shortcutsBtn.contains(e.target) && !shortcutsPanel.contains(e.target)) {
+    shortcutsPanel.classList.remove('active')
+  }
+})
+
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+  // Close shortcuts panel on any key
+  if (shortcutsPanel.classList.contains('active')) {
+    shortcutsPanel.classList.remove('active')
+  }
+  
   if (welcomeScreen.classList.contains('hidden') && !historyModal.classList.contains('active') && !summaryModal.classList.contains('active')) {
     if (e.code === 'Space') {
       e.preventDefault()
@@ -1170,6 +1328,12 @@ document.addEventListener('keydown', (e) => {
       endSession()
     } else if (e.code === 'KeyT') {
       toggleTeleprompterBtn.click()
+    } else if (e.code === 'KeyN') {
+      newPromptBtn.click()
+    } else if (e.code === 'KeyM') {
+      soundToggle.checked = !soundToggle.checked
+      soundEnabled = soundToggle.checked
+      localStorage.setItem(SOUND_KEY, soundEnabled)
     }
   }
 })

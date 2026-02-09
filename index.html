@@ -4,7 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  
+  <!-- Primary Meta Tags -->
   <title>ConfidentSpeak - AI Presentation Coach</title>
+  <meta name="title" content="ConfidentSpeak - AI Presentation Coach">
+  <meta name="description" content="Practice public speaking with real-time AI feedback on confidence, expressions, and eye contact. Free browser-based presentation coach.">
+  <meta name="keywords" content="presentation coach, public speaking, AI feedback, confidence training, speech practice">
+  <meta name="author" content="ConfidentSpeak">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="ConfidentSpeak - AI Presentation Coach">
+  <meta property="og:description" content="Practice public speaking with real-time AI feedback on confidence, expressions, and eye contact.">
+  <meta property="og:image" content="https://via.placeholder.com/1200x630/1a1a2e/4ade80?text=ConfidentSpeak">
+  
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="ConfidentSpeak - AI Presentation Coach">
+  <meta property="twitter:description" content="Practice public speaking with real-time AI feedback on confidence, expressions, and eye contact.">
+  <meta property="twitter:image" content="https://via.placeholder.com/1200x630/1a1a2e/4ade80?text=ConfidentSpeak">
+  
+  <!-- Favicon (emoji-based SVG) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+  
+  <!-- Theme Color -->
+  <meta name="theme-color" content="#1a1a2e">
+  
   <script defer src="face-api.min.js"></script>
   <script defer src="script.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -982,6 +1007,169 @@
       text-overflow: ellipsis;
     }
 
+    /* Keyboard Shortcuts Help */
+    .shortcuts-btn {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      font-size: 1.25rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      z-index: 100;
+    }
+
+    .shortcuts-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(1.1);
+    }
+
+    .shortcuts-panel {
+      position: fixed;
+      bottom: 4rem;
+      right: 1rem;
+      background: rgba(26, 26, 46, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 1rem;
+      min-width: 220px;
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(10px);
+      transition: all 0.2s ease;
+    }
+
+    .shortcuts-panel.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .shortcuts-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.6);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .shortcut-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.85rem;
+    }
+
+    .shortcut-item:last-child { border-bottom: none; }
+
+    .shortcut-key {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: #4ade80;
+    }
+
+    /* Progress Chart */
+    .chart-container {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      padding: 0.75rem;
+      margin-top: 0.5rem;
+    }
+
+    .chart-canvas {
+      width: 100%;
+      height: 120px;
+    }
+
+    .chart-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.65rem;
+      color: rgba(255, 255, 255, 0.4);
+      margin-top: 0.5rem;
+    }
+
+    .chart-empty {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 0.8rem;
+      padding: 2rem 0;
+    }
+
+    /* Sound Toggle */
+    .sound-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .sound-toggle:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .sound-toggle input {
+      display: none;
+    }
+
+    .sound-toggle .toggle-switch {
+      width: 36px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .sound-toggle .toggle-switch::after {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: all 0.2s;
+    }
+
+    .sound-toggle input:checked + .toggle-switch {
+      background: #4ade80;
+    }
+
+    .sound-toggle input:checked + .toggle-switch::after {
+      left: 18px;
+    }
+
+    .sound-toggle-label {
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
     /* Responsive */
     @media (max-width: 1200px) {
       .main-container { flex-direction: column; }
@@ -1030,6 +1218,11 @@
       <div class="logo-text">Confident<span>Speak</span></div>
     </div>
     <div class="header-right">
+      <label class="sound-toggle" title="Toggle sound effects">
+        <input type="checkbox" id="soundToggle" checked>
+        <span class="toggle-switch"></span>
+        <span class="sound-toggle-label">🔊</span>
+      </label>
       <button class="header-btn" id="historyBtn"><span>📈</span> History</button>
       <div class="session-timer" id="sessionTimer">
         <span id="timerDisplay">00:00</span>
@@ -1216,12 +1409,25 @@
 
   <!-- History Modal -->
   <div class="modal-overlay" id="historyModal">
-    <div class="modal">
+    <div class="modal" style="max-width: 500px;">
       <div class="modal-header">
         <h2>📈 Your Progress</h2>
         <p>Track your improvement over time</p>
       </div>
       <div id="streakContainer"></div>
+      
+      <!-- Progress Chart -->
+      <div class="panel" style="margin-bottom: 1rem; padding: 0.75rem;">
+        <div class="panel-title" style="margin-bottom: 0.5rem;"><span>📊</span> Confidence Trend</div>
+        <div class="chart-container">
+          <canvas id="progressChart" class="chart-canvas"></canvas>
+          <div class="chart-labels">
+            <span>Oldest</span>
+            <span>Recent</span>
+          </div>
+        </div>
+      </div>
+      
       <div class="history-list" id="historyList">
         <div class="history-empty">No sessions yet. Start practicing!</div>
       </div>
@@ -1242,6 +1448,32 @@
       <div class="breathing-progress-bar" id="breathingProgress"></div>
     </div>
     <button class="breathing-skip" id="skipBreathingBtn">Skip & Start Session</button>
+  </div>
+
+  <!-- Keyboard Shortcuts Help -->
+  <button class="shortcuts-btn" id="shortcutsBtn" title="Keyboard Shortcuts">?</button>
+  <div class="shortcuts-panel" id="shortcutsPanel">
+    <div class="shortcuts-title">⌨️ Keyboard Shortcuts</div>
+    <div class="shortcut-item">
+      <span>Start/Pause</span>
+      <span class="shortcut-key">Space</span>
+    </div>
+    <div class="shortcut-item">
+      <span>End Session</span>
+      <span class="shortcut-key">Esc</span>
+    </div>
+    <div class="shortcut-item">
+      <span>Teleprompter</span>
+      <span class="shortcut-key">T</span>
+    </div>
+    <div class="shortcut-item">
+      <span>New Prompt</span>
+      <span class="shortcut-key">N</span>
+    </div>
+    <div class="shortcut-item">
+      <span>Toggle Sound</span>
+      <span class="shortcut-key">M</span>
+    </div>
   </div>
 
   <!-- Confetti Container -->
