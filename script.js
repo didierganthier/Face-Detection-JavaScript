@@ -200,6 +200,43 @@ const SOUND_KEY = 'confidentspeak_sound'
 
 // Sound Effects State
 let soundEnabled = localStorage.getItem(SOUND_KEY) !== 'false'
+let audioContext = null
+
+// Sound Effects - Web Audio API
+function playSound(type) {
+  if (!soundEnabled) return
+  
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)()
+    }
+    
+    const oscillator = audioContext.createOscillator()
+    const gainNode = audioContext.createGain()
+    
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContext.destination)
+    
+    const sounds = {
+      start: { freq: 523.25, duration: 0.15, type: 'sine' },      // C5
+      end: { freq: 392, duration: 0.3, type: 'sine' },            // G4
+      badge: { freq: 783.99, duration: 0.2, type: 'sine' },       // G5
+      warning: { freq: 440, duration: 0.1, type: 'square' },      // A4
+      click: { freq: 1000, duration: 0.05, type: 'sine' }         // Click
+    }
+    
+    const sound = sounds[type] || sounds.click
+    oscillator.frequency.value = sound.freq
+    oscillator.type = sound.type
+    gainNode.gain.value = 0.1
+    
+    oscillator.start()
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + sound.duration)
+    oscillator.stop(audioContext.currentTime + sound.duration)
+  } catch (e) {
+    console.log('Sound not available:', e)
+  }
+}
 
 // Coaching Tips
 const coachingTips = {
