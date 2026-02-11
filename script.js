@@ -98,6 +98,12 @@ const sessionNotesInput = document.getElementById('sessionNotesInput')
 // Sound Toggle
 const soundToggle = document.getElementById('soundToggle')
 
+// Video Recording Playback
+const rewatchSection = document.getElementById('rewatchSection')
+const recordedVideo = document.getElementById('recordedVideo')
+const rewatchBtn = document.getElementById('rewatchBtn')
+const downloadVideoBtn = document.getElementById('downloadVideoBtn')
+
 // Keyboard Shortcuts
 const shortcutsBtn = document.getElementById('shortcutsBtn')
 const shortcutsPanel = document.getElementById('shortcutsPanel')
@@ -137,6 +143,12 @@ let sessionStats = {
 const HISTORY_KEY = 'confidentspeak_history'
 const STREAK_KEY = 'confidentspeak_streak'
 const BADGES_KEY = 'confidentspeak_badges'
+
+// IndexedDB for video storage
+const VIDEO_DB_NAME = 'confidentspeak_videos'
+const VIDEO_STORE_NAME = 'recordings'
+let videoDb = null
+let currentSessionId = null
 
 // Practice Prompts Database
 const practicePrompts = {
@@ -202,6 +214,11 @@ const SOUND_KEY = 'confidentspeak_sound'
 let soundEnabled = localStorage.getItem(SOUND_KEY) !== 'false'
 let audioContext = null
 
+// Video Recording
+let mediaRecorder = null
+let recordedChunks = []
+let recordedVideoURL = null
+
 // Sound Effects - Web Audio API
 function playSound(type) {
   if (!soundEnabled) return
@@ -263,6 +280,9 @@ const TIP_COOLDOWN = 5000
 async function initialize() {
   try {
     loadingText.textContent = 'Loading AI models...'
+    
+    // Initialize IndexedDB for video storage
+    await initVideoDb()
     
     await Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri('./models'),
@@ -376,6 +396,112 @@ teleprompterInput.addEventListener('input', () => {
 })
 
 // ========================================
+// Video Recording
+// ========================================
+
+let recordingMimeType = 'video/webm'
+let microphoneStream = null
+
+async function startRecording() {
+  recordedChunks = []
+  recordedVideoURL = null
+  currentSessionId = Date.now() // Generate unique session ID
+  
+  try {
+    const videoStream = video.srcObject
+    if (!videoStream) return
+    
+    // Get video track only (ignore any audio from webcam)
+    const videoTrack = videoStream.getVideoTracks()[0]
+    if (!videoTrack) return
+    
+    // Get fresh microphone audio with optimized settings
+    let combinedStream
+    try {
+      microphoneStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100
+        }
+      })
+      const audioTrack = microphoneStream.getAudioTracks()[0]
+      combinedStream = new MediaStream([videoTrack, audioTrack])
+    } catch (e) {
+      console.log('Microphone not available, recording video only')
+      combinedStream = new MediaStream([videoTrack])
+    }
+    
+    // Check for supported MIME types
+    const mimeTypes = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+      'video/mp4'
+    ]
+    
+    recordingMimeType = ''
+    for (const mimeType of mimeTypes) {
+      if (MediaRecorder.isTypeSupported(mimeType)) {
+        recordingMimeType = mimeType
+        break
+      }
+    }
+    
+    if (!recordingMimeType) {
+      console.log('No supported MIME type for recording')
+      return
+    }
+    
+    mediaRecorder = new MediaRecorder(combinedStream, { mimeType: recordingMimeType })
+    
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordedChunks.push(event.data)
+      }
+    }
+    
+    mediaRecorder.onstop = async () => {
+      if (recordedChunks.length > 0) {
+        const blob = new Blob(recordedChunks, { type: recordingMimeType })
+        recordedVideoURL = URL.createObjectURL(blob)
+        
+        // Save to IndexedDB
+        try {
+          await saveVideoToDb(currentSessionId, blob)
+          console.log('Video saved to IndexedDB')
+        } catch (e) {
+          console.log('Failed to save video:', e)
+        }
+        
+        // Update UI
+        recordedVideo.src = recordedVideoURL
+        rewatchBtn.style.display = 'flex'
+      }
+    }
+    
+    mediaRecorder.start(1000) // Collect data every second
+    console.log('Recording started with audio')
+  } catch (e) {
+    console.log('Recording not available:', e)
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop()
+    console.log('Recording stopped')
+  }
+  
+  // Stop microphone stream to free resources
+  if (microphoneStream) {
+    microphoneStream.getTracks().forEach(track => track.stop())
+    microphoneStream = null
+  }
+}
+
+// ========================================
 // Practice Prompts
 // ========================================
 
@@ -421,6 +547,9 @@ function startSession() {
   // Play start sound
   playSound('start')
   
+  // Start video recording
+  startRecording()
+  
   sessionStats = {
     confidenceScores: [],
     expressions: { happy: [], neutral: [], surprised: [], sad: [] },
@@ -465,6 +594,9 @@ function endSession() {
   
   // Play end sound
   playSound('end')
+  
+  // Stop video recording
+  stopRecording()
   
   if (detectionInterval) clearInterval(detectionInterval)
   if (timerInterval) clearInterval(timerInterval)
@@ -579,14 +711,7 @@ async function detectFaces() {
     const context = canvas.getContext('2d')
     context.clearRect(0, 0, canvas.width, canvas.height)
 
-    if (resizedDetections.length > 0) {
-      resizedDetections.forEach(detection => {
-        const box = detection.detection.box
-        context.strokeStyle = 'rgba(74, 222, 128, 0.6)'
-        context.lineWidth = 2
-        context.strokeRect(box.x, box.y, box.width, box.height)
-      })
-    }
+    // Face detection box removed for cleaner UI
 
     if (isSessionActive) {
       sessionStats.totalFrames++
@@ -793,6 +918,81 @@ function saveHistory(history) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
 }
 
+// ========================================
+// IndexedDB for Video Storage
+// ========================================
+
+function initVideoDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(VIDEO_DB_NAME, 1)
+    
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      videoDb = request.result
+      resolve(videoDb)
+    }
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result
+      if (!db.objectStoreNames.contains(VIDEO_STORE_NAME)) {
+        db.createObjectStore(VIDEO_STORE_NAME, { keyPath: 'sessionId' })
+      }
+    }
+  })
+}
+
+async function saveVideoToDb(sessionId, blob) {
+  if (!videoDb) await initVideoDb()
+  
+  return new Promise((resolve, reject) => {
+    const transaction = videoDb.transaction([VIDEO_STORE_NAME], 'readwrite')
+    const store = transaction.objectStore(VIDEO_STORE_NAME)
+    const request = store.put({ sessionId, blob, savedAt: Date.now() })
+    
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function getVideoFromDb(sessionId) {
+  if (!videoDb) await initVideoDb()
+  
+  return new Promise((resolve, reject) => {
+    const transaction = videoDb.transaction([VIDEO_STORE_NAME], 'readonly')
+    const store = transaction.objectStore(VIDEO_STORE_NAME)
+    const request = store.get(sessionId)
+    
+    request.onsuccess = () => resolve(request.result?.blob || null)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function deleteVideoFromDb(sessionId) {
+  if (!videoDb) await initVideoDb()
+  
+  return new Promise((resolve, reject) => {
+    const transaction = videoDb.transaction([VIDEO_STORE_NAME], 'readwrite')
+    const store = transaction.objectStore(VIDEO_STORE_NAME)
+    const request = store.delete(sessionId)
+    
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function clearAllVideosFromDb() {
+  if (!videoDb) await initVideoDb()
+  
+  return new Promise((resolve, reject) => {
+    const transaction = videoDb.transaction([VIDEO_STORE_NAME], 'readwrite')
+    const store = transaction.objectStore(VIDEO_STORE_NAME)
+    const request = store.clear()
+    
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
 function getStreak() {
   try {
     return JSON.parse(localStorage.getItem(STREAK_KEY)) || { count: 0, lastDate: null }
@@ -839,13 +1039,14 @@ function saveSession() {
     : 0
 
   const session = {
-    id: Date.now(),
+    id: currentSessionId || Date.now(),
     date: new Date().toISOString(),
     mode: currentMode.name,
     duration: duration,
     confidence: avgConfidence,
     smiling: avgHappy,
-    engagement: avgConfidence >= 70 && avgHappy >= 20 ? 'High' : avgConfidence >= 50 ? 'Medium' : 'Low'
+    engagement: avgConfidence >= 70 && avgHappy >= 20 ? 'High' : avgConfidence >= 50 ? 'Medium' : 'Low',
+    hasVideo: recordedChunks.length > 0
   }
 
   const history = getHistory()
@@ -894,6 +1095,7 @@ function renderHistory() {
     const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
     const notesHtml = session.notes ? `<div class="history-item-notes">📝 ${session.notes}</div>` : ''
+    const watchBtn = session.hasVideo ? `<button class="watch-history-btn" data-session-id="${session.id}" title="Watch recording">🎬</button>` : ''
     
     return `
       <div class="history-item">
@@ -902,15 +1104,61 @@ function renderHistory() {
           <div class="history-date">${dateStr} at ${timeStr}</div>
           ${notesHtml}
         </div>
-        <div class="history-score">${session.confidence}%</div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          ${watchBtn}
+          <div class="history-score">${session.confidence}%</div>
+        </div>
       </div>
     `
   }).join('')
+  
+  // Add click handlers for watch buttons
+  document.querySelectorAll('.watch-history-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      const sessionId = parseInt(btn.dataset.sessionId)
+      await playHistoryVideo(sessionId)
+    })
+  })
 }
 
 function getModeEmoji(mode) {
   const emojis = { elevator: '⚡', intro: '👋', presentation: '🎯', unlimited: '♾️' }
   return emojis[mode] || '🎤'
+}
+
+async function playHistoryVideo(sessionId) {
+  try {
+    const blob = await getVideoFromDb(sessionId)
+    if (!blob) {
+      alert('Video not found. It may have been deleted.')
+      return
+    }
+    
+    // Close history modal and open video player modal
+    historyModal.classList.remove('active')
+    
+    // Create URL and play in summary modal
+    if (recordedVideoURL) URL.revokeObjectURL(recordedVideoURL)
+    recordedVideoURL = URL.createObjectURL(blob)
+    recordedVideo.src = recordedVideoURL
+    
+    // Show the summary modal with video
+    summaryModal.classList.add('active')
+    rewatchSection.style.display = 'block'
+    rewatchBtn.style.display = 'none'
+    
+    // Hide the stats sections since this is just for video playback
+    document.querySelector('.summary-stats').style.display = 'none'
+    document.querySelector('#summaryFeedback').style.display = 'none'
+    document.querySelector('.notes-section').style.display = 'none'
+    document.querySelector('#newSessionBtn').style.display = 'none'
+    
+    recordedVideo.play()
+  } catch (e) {
+    console.error('Error playing video:', e)
+    alert('Failed to load video.')
+  }
 }
 
 // ========================================
@@ -1018,10 +1266,11 @@ function renderProgressChart(history) {
   ctx.fillText(`${lastScore}%`, lastX, lastY - 12)
 }
 
-function clearHistory() {
-  if (confirm('Clear all session history? This cannot be undone.')) {
+async function clearHistory() {
+  if (confirm('Clear all session history and videos? This cannot be undone.')) {
     localStorage.removeItem(HISTORY_KEY)
     localStorage.removeItem(STREAK_KEY)
+    await clearAllVideosFromDb()
     renderHistory()
   }
 }
@@ -1273,6 +1522,17 @@ function closeModal() {
     saveSessionNotes(notes)
   }
   summaryModal.classList.remove('active')
+  
+  // Reset video playback UI
+  rewatchSection.style.display = 'none'
+  recordedVideo.pause()
+  recordedVideo.src = ''
+  
+  // Restore hidden elements (in case opened from history)
+  document.querySelector('.summary-stats').style.display = ''
+  document.querySelector('#summaryFeedback').style.display = ''
+  document.querySelector('.notes-section').style.display = ''
+  document.querySelector('#newSessionBtn').style.display = ''
 }
 
 function saveSessionNotes(notes) {
@@ -1289,6 +1549,9 @@ function resetSession() {
   confidenceScore.textContent = '0'
   scoreCircle.style.setProperty('--score', 0)
   scoreLabel.textContent = 'Start a session to see your score'
+  
+  // Reset rewatch button for next session
+  rewatchBtn.style.display = 'none'
   
   happyBar.style.width = '0%'
   happyValue.textContent = '0%'
@@ -1322,6 +1585,26 @@ pauseSessionBtn.addEventListener('click', togglePause)
 
 closeModalBtn.addEventListener('click', closeModal)
 newSessionBtn.addEventListener('click', () => { resetSession(); startSession() })
+
+// Video Playback Controls
+rewatchBtn.addEventListener('click', () => {
+  if (recordedVideoURL) {
+    rewatchSection.style.display = 'block'
+    rewatchBtn.style.display = 'none'
+    recordedVideo.play()
+  }
+})
+
+downloadVideoBtn.addEventListener('click', () => {
+  if (recordedVideoURL) {
+    const extension = recordingMimeType.includes('mp4') ? 'mp4' : 'webm'
+    const a = document.createElement('a')
+    a.href = recordedVideoURL
+    a.download = `confidentspeak-session-${new Date().toISOString().slice(0, 10)}.${extension}`
+    a.click()
+    playSound('click')
+  }
+})
 
 // History Modal
 historyBtn.addEventListener('click', () => { renderHistory(); historyModal.classList.add('active') })
@@ -1378,6 +1661,62 @@ document.addEventListener('keydown', (e) => {
 // Error handling
 video.addEventListener('error', (e) => showError('Video error: ' + e.message))
 window.addEventListener('error', (e) => showError('Application error: ' + e.message))
+
+// ========================================
+// PWA Install & Offline Detection
+// ========================================
+
+let deferredPrompt = null
+const pwaInstallBanner = document.getElementById('pwaInstallBanner')
+const pwaInstallClose = document.getElementById('pwaInstallClose')
+const offlineIndicator = document.getElementById('offlineIndicator')
+
+// Listen for the install prompt
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault()
+  deferredPrompt = e
+  // Show install banner after a delay
+  setTimeout(() => {
+    pwaInstallBanner.classList.add('show')
+  }, 3000)
+})
+
+// Handle install banner click
+pwaInstallBanner.addEventListener('click', async (e) => {
+  if (e.target === pwaInstallClose) {
+    pwaInstallBanner.classList.remove('show')
+    return
+  }
+  
+  if (deferredPrompt) {
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    console.log('PWA install outcome:', outcome)
+    deferredPrompt = null
+    pwaInstallBanner.classList.remove('show')
+  }
+})
+
+// Hide banner when app is installed
+window.addEventListener('appinstalled', () => {
+  pwaInstallBanner.classList.remove('show')
+  deferredPrompt = null
+  console.log('PWA installed successfully')
+})
+
+// Offline detection
+window.addEventListener('online', () => {
+  offlineIndicator.classList.remove('show')
+})
+
+window.addEventListener('offline', () => {
+  offlineIndicator.classList.add('show')
+})
+
+// Check initial state
+if (!navigator.onLine) {
+  offlineIndicator.classList.add('show')
+}
 
 // ========================================
 // Start Application
