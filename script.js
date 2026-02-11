@@ -296,24 +296,47 @@ async function initialize() {
     await startVideo()
     
   } catch (error) {
-    showError('Failed to initialize: ' + error.message)
     console.error('Initialization error:', error)
+    
+    // Determine error type for better messaging
+    if (error.message.includes('camera') || error.name === 'NotAllowedError' || 
+        error.name === 'NotFoundError' || error.name === 'NotReadableError') {
+      showError(error.message, 'camera')
+    } else {
+      showError('Failed to load AI models. Please refresh and try again.', 'other')
+    }
   }
 }
 
 function startVideo() {
   return new Promise((resolve, reject) => {
+    // Mobile-friendly constraints (iOS Safari compatible)
     const constraints = {
-      video: { width: { ideal: 720 }, height: { ideal: 560 }, facingMode: 'user' }
+      video: { 
+        width: { ideal: 720, max: 1280 }, 
+        height: { ideal: 560, max: 720 }, 
+        facingMode: 'user'
+      },
+      audio: false // Don't request audio here, we get it separately for recording
     }
 
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia(constraints)
-        .then(stream => { video.srcObject = stream; resolve() })
-        .catch(reject)
-    } else {
-      reject(new Error('Camera not supported'))
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      reject(new Error('Camera not supported on this browser'))
+      return
     }
+    
+    navigator.mediaDevices.getUserMedia(constraints)
+      .then(stream => { 
+        video.srcObject = stream
+        video.setAttribute('playsinline', 'true') // Required for iOS
+        video.setAttribute('autoplay', 'true')
+        video.muted = true
+        resolve() 
+      })
+      .catch(error => {
+        console.error('Camera error:', error)
+        reject(error)
+      })
   })
 }
 
@@ -333,12 +356,47 @@ function setupCanvas() {
 
 function hideLoading() { loading.classList.add('hidden') }
 
-function showError(message) {
-  errorDiv.textContent = message
-  errorDiv.style.display = 'block'
+function showError(message, errorType = 'camera') {
+  const errorMessage = document.getElementById('errorMessage')
+  
+  // Customize error message based on error type
+  if (errorType === 'camera') {
+    if (message.includes('NotAllowed') || message.includes('Permission denied')) {
+      errorMessage.textContent = 'Camera permission was denied.'
+    } else if (message.includes('NotFound') || message.includes('Requested device not found')) {
+      errorMessage.textContent = 'No camera found on this device.'
+    } else if (message.includes('NotReadable') || message.includes('Could not start')) {
+      errorMessage.textContent = 'Camera is being used by another application.'
+    } else {
+      errorMessage.textContent = message
+    }
+  } else {
+    errorMessage.textContent = message
+  }
+  
+  errorDiv.classList.add('show')
   loading.classList.add('hidden')
+  welcomeScreen.classList.add('hidden')
   updateStatus('error', 'Error')
 }
+
+function hideError() {
+  errorDiv.classList.remove('show')
+}
+
+// Retry camera access
+const retryCamera = document.getElementById('retryCamera')
+retryCamera.addEventListener('click', async () => {
+  hideError()
+  loading.classList.remove('hidden')
+  loadingText.textContent = 'Requesting camera access...'
+  
+  try {
+    await startVideo()
+  } catch (error) {
+    showError(error.message, 'camera')
+  }
+})
 
 function updateStatus(type, text) {
   statusDot.className = `status-dot ${type}`
